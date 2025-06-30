@@ -1,0 +1,78 @@
+@Library('shared-libs') _
+
+pipeline {
+
+  agent {
+    node {
+      label "master"
+    }
+  }
+
+  environment {
+    GITHUB_CRED = 'your_ssh_cred_id'
+    GITHUB_RW_CRED = 'your_rw_cred_id'
+    GITHUB_RW_MAIL = 'you@example.com'
+  }
+
+  stages {
+    stage('Clone sync-repo1 (destination)') {
+      steps {
+        script {
+          sshagent (credentials: [env.GITHUB_RW_CRED]) {
+            sh '''
+              set -e
+              git clone git@github.com:swethashk/sync-repo1.git
+              cd sync-repo1
+              git checkout -B staging origin/staging || git checkout -b staging
+              cd ..
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Clone sync-repo2 (source) & Copy Files') {
+      steps {
+        script {
+          sshagent (credentials: [env.GITHUB_CRED]) {
+            sh '''
+              set -e
+              git clone git@github.com:swethashk/sync-repo2.git
+              cp -v sync-repo2/tenants.yaml sync-repo1/tenants.yaml
+              cp -v sync-repo2/customer_accounts.yaml sync-repo1/producers.yaml
+              rm -rf sync-repo2
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Push to staging branch') {
+      steps {
+        script {
+          sshagent (credentials: [env.GITHUB_RW_CRED]) {
+            sh '''
+              set -e
+              cd sync-repo1
+              git config user.name "Automated Sync"
+              git config user.email "${GITHUB_RW_MAIL}"
+              if [ -n "$(git status --porcelain)" ]; then
+                git add .
+                git commit -m "Sync: Update tenants and producers"
+                git push origin staging
+              else
+                echo "No changes to push."
+              fi
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}
