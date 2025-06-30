@@ -8,17 +8,11 @@ pipeline {
     }
   }
 
-  environment {
-    GITHUB_CRED = 'your_ssh_cred_id'
-    GITHUB_RW_CRED = 'your_rw_cred_id'
-    GITHUB_RW_MAIL = 'you@example.com'
-  }
-
   stages {
     stage('Clone sync-repo1 (destination)') {
       steps {
         script {
-          sshagent (credentials: [env.GITHUB_RW_CRED]) {
+          sshagent (credentials: ['octojenkins-rw']) {
             sh '''
               set -e
               git clone git@github.com:swethashk/sync-repo1.git
@@ -34,7 +28,7 @@ pipeline {
     stage('Clone sync-repo2 (source) & Copy Files') {
       steps {
         script {
-          sshagent (credentials: [env.GITHUB_CRED]) {
+          sshagent (credentials: ['jenkins_ssh']) {
             sh '''
               set -e
               git clone git@github.com:swethashk/sync-repo2.git
@@ -50,12 +44,12 @@ pipeline {
     stage('Push to staging branch') {
       steps {
         script {
-          sshagent (credentials: [env.GITHUB_RW_CRED]) {
+          sshagent (credentials: ['octojenkins-rw']) {
             sh '''
               set -e
               cd sync-repo1
               git config user.name "Automated Sync"
-              git config user.email "${GITHUB_RW_MAIL}"
+              git config user.email "you@example.com"
               if [ -n "$(git status --porcelain)" ]; then
                 git add .
                 git commit -m "Sync: Update tenants and producers"
